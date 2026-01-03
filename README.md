@@ -38,7 +38,10 @@ curl -X POST http://localhost:8080/users -d '{"name":"Alice","email":"alice@exam
 │       ├── response.ts # Response helpers
 │       ├── router.ts   # Router
 │       ├── constants.ts # MIME types, headers, limits
-│       └── typed.ts    # Id, ParseError, ValidationError
+│       ├── typed.ts    # Id, ParseError, ValidationError
+│       ├── encoding.ts # Text/JSON encoding utilities
+│       ├── headers.ts  # Header handling utilities
+│       └── http-status.ts # Status code utilities
 ├── wit/handler.wit     # WIT world definition
 ├── tests/
 │   ├── api.test.mjs    # E2E tests
@@ -294,6 +297,65 @@ err1.status;  // 400
 err1.title;   // "Bad Request"
 ValidationError.min("x", 0).status;  // 422
 ValidationError.min("x", 0).title;   // "Unprocessable Entity"
+```
+
+### Encoding Utilities
+
+```typescript
+import { encodeJson, decodeJson, encodeText, decodeText } from "./sdk/index.js";
+
+// Encode to Uint8Array
+const jsonBytes = encodeJson({ name: "Alice" });  // JSON string → bytes
+const textBytes = encodeText("Hello");            // string → UTF-8 bytes
+
+// Decode from Uint8Array
+const obj = decodeJson<User>(jsonBytes);  // bytes → parsed object (or null)
+const str = decodeText(textBytes);        // UTF-8 bytes → string
+```
+
+### Header Utilities
+
+```typescript
+import { findHeader, findAllHeaders, headersToMap } from "./sdk/index.js";
+
+const headers: [string, string][] = [
+  ["Content-Type", "application/json"],
+  ["Accept", "text/html"],
+  ["Accept", "application/json"],
+];
+
+// Case-insensitive lookup
+findHeader(headers, "content-type");     // "application/json"
+findHeader(headers, "X-Missing");        // null
+
+// Get all values for a header
+findAllHeaders(headers, "accept");       // ["text/html", "application/json"]
+
+// Convert Headers object to Map (lowercase keys)
+const map = headersToMap(response.headers);
+map.get("content-type");                 // "application/json"
+```
+
+### HTTP Status Utilities
+
+```typescript
+import { isSuccess, isClientError, isServerError, isRedirect } from "./sdk/index.js";
+
+isSuccess(200);      // true  (2xx)
+isSuccess(201);      // true
+isSuccess(404);      // false
+
+isClientError(400);  // true  (4xx)
+isClientError(404);  // true
+isClientError(500);  // false
+
+isServerError(500);  // true  (5xx)
+isServerError(503);  // true
+isServerError(404);  // false
+
+isRedirect(301);     // true  (3xx)
+isRedirect(302);     // true
+isRedirect(200);     // false
 ```
 
 ## Writing Handlers
