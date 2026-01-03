@@ -48,6 +48,16 @@ export {
   type Handler,
 } from "./router.js";
 
+export {
+  // Guard/ensure helpers
+  guard,
+  guardAll,
+  ensure,
+  ensureOk,
+  // Types
+  type EnsureResult,
+} from "./guard.js";
+
 import * as random from "./random.js";
 import * as time from "./time.js";
 import * as env from "./env.js";

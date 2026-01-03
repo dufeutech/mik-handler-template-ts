@@ -198,6 +198,39 @@ router.post("/users", (req, params) => {
 });
 ```
 
+### Guard & Ensure
+
+```typescript
+import { guard, guardAll, ensure } from "./sdk/index.js";
+
+// Guard - return error if condition is false
+router.post("/users", (req) => {
+  const input = parseJson<CreateUser>(req.body);
+
+  // Single guard
+  const err = guard(!!input?.name, 400, "Name is required");
+  if (err) return err;
+
+  // Multiple guards
+  const err = guardAll(
+    [!!input?.name, 400, "Name is required"],
+    [!!input?.email, 400, "Email is required"],
+    [input.email.includes("@"), 400, "Invalid email format"],
+  );
+  if (err) return err;
+
+  return created(createUser(input));
+});
+
+// Ensure - unwrap value or return error
+router.get("/users/{id}", (_req, params) => {
+  const result = ensure(findUser(params.id), 404, "User not found");
+  if (!result.ok) return result.error;
+
+  return ok(result.value);
+});
+```
+
 ## Writing Handlers
 
 **`src/types.ts`** - Define your request/response types:
