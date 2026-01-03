@@ -1,0 +1,112 @@
+# GitHub Actions workflow for deploying TypeScript mik handlers
+#
+# Publishes to: ghcr.io/{owner}/{repo}:{version}
+# Artifacts: service.wasm (handler + bridge composed)
+#
+# Trigger: Manual dispatch or version tags (v*)
+
+name: Deploy
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version override (leave empty to use package.json)"
+        required: false
+        type: string
+      sdk_version:
+        description: "mik-sdk version for WIT deps and bridge"
+        required: false
+        type: string
+        default: "0.1.2"
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  NODE_VERSION: "20"
+  SDK_VERSION: "0.1.2"
+  SDK_REPO: "dufeut/mik-sdk"
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Get version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          SDK_VER="${{ inputs.sdk_version || env.SDK_VERSION }}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "sdk_version=$SDK_VER" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION, SDK: $SDK_VER"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fetch WIT dependencies
+        run: |
+          SDK_VER="${{ steps.version.outputs.sdk_version }}"
+          mkdir -p wit/deps
+          curl -sL "https://github.com/${{ env.SDK_REPO }}/releases/download/v${SDK_VER}/wit-deps.tar.gz" | tar -xz -C wit/deps
+
+      - name: Build handler
+        run: npm run build
+
+      - name: Download bridge
+        run: |
+          SDK_VER="${{ steps.version.outputs.sdk_version }}"
+          curl -sL "https://github.com/${{ env.SDK_REPO }}/releases/download/v${SDK_VER}/mik-bridge.wasm" -o dist/mik-bridge.wasm
+
+      - name: Install wac
+        run: cargo install wac-cli --locked
+
+      - name: Compose components
+        run: wac plug dist/mik-bridge.wasm --plug dist/handler.wasm -o dist/service.wasm
+
+      - name: Strip debug info
+        run: |
+          cargo install wasm-tools --locked
+          wasm-tools strip --all dist/service.wasm -o dist/service.wasm
+
+      - name: Install oras
+        run: |
+          curl -LO https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz
+          tar -xzf oras_1.2.0_linux_amd64.tar.gz
+          sudo mv oras /usr/local/bin/
+
+      - name: Login to ghcr.io
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Push to ghcr.io
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+
+          # Push versioned
+          oras push ghcr.io/${REPO}:${VERSION} \
+            --artifact-type application/vnd.wasm.component.v1+wasm \
+            dist/service.wasm:application/wasm
+
+          # Push latest
+          oras push ghcr.io/${REPO}:latest \
+            --artifact-type application/vnd.wasm.component.v1+wasm \
+            dist/service.wasm:application/wasm
+
+          echo "Published: ghcr.io/${REPO}:${VERSION}"

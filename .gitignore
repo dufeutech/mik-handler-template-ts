@@ -137,3 +137,7 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+*.wasm
+# WIT dependencies (fetched from registry)
+wit/deps/
