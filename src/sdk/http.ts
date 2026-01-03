@@ -1,6 +1,11 @@
 // HTTP client for making outbound requests
 // Uses fetch API (available in WASI runtimes)
 
+import { encodeJson, encodeText, decodeJson, decodeText } from "./encoding.js";
+import { headersToMap } from "./headers.js";
+import { isSuccess, isClientError, isServerError } from "./http-status.js";
+import { MIME_JSON, HEADER_CONTENT_TYPE_TITLE } from "./constants.js";
+
 export interface HttpResponse {
   status: number;
   headers: Map<string, string>;
@@ -21,30 +26,23 @@ export interface HttpError {
   message: string;
 }
 
-export type HttpResult = { ok: true; response: HttpResponse } | { ok: false; error: HttpError };
+export type HttpResult =
+  | { ok: true; value: HttpResponse }
+  | { ok: false; error: HttpError };
 
 function createResponse(status: number, headers: Headers, body: Uint8Array): HttpResponse {
-  const headerMap = new Map<string, string>();
-  headers.forEach((value, key) => {
-    headerMap.set(key.toLowerCase(), value);
-  });
+  const headerMap = headersToMap(headers);
 
   return {
     status,
     headers: headerMap,
     body,
-    ok: status >= 200 && status < 300,
-    isSuccess: () => status >= 200 && status < 300,
-    isClientError: () => status >= 400 && status < 500,
-    isServerError: () => status >= 500,
-    text: () => new TextDecoder().decode(body),
-    json: <T>() => {
-      try {
-        return JSON.parse(new TextDecoder().decode(body)) as T;
-      } catch {
-        return null;
-      }
-    },
+    ok: isSuccess(status),
+    isSuccess: () => isSuccess(status),
+    isClientError: () => isClientError(status),
+    isServerError: () => isServerError(status),
+    text: () => decodeText(body),
+    json: <T>() => decodeJson<T>(body),
     header: (name: string) => headerMap.get(name.toLowerCase()) ?? null,
   };
 }
@@ -70,7 +68,7 @@ class HttpRequest {
 
   body(data: Uint8Array | string): this {
     if (typeof data === "string") {
-      this.reqBody = new TextEncoder().encode(data);
+      this.reqBody = encodeText(data);
     } else {
       this.reqBody = data;
     }
@@ -78,8 +76,8 @@ class HttpRequest {
   }
 
   json<T>(data: T): this {
-    this.reqHeaders.push(["Content-Type", "application/json"]);
-    this.reqBody = new TextEncoder().encode(JSON.stringify(data));
+    this.reqHeaders.push([HEADER_CONTENT_TYPE_TITLE, MIME_JSON]);
+    this.reqBody = encodeJson(data);
     return this;
   }
 
@@ -114,7 +112,7 @@ class HttpRequest {
       const body = new Uint8Array(await response.arrayBuffer());
       return {
         ok: true,
-        response: createResponse(response.status, response.headers, body),
+        value: createResponse(response.status, response.headers, body),
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

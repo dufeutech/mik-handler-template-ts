@@ -92,6 +92,29 @@ export {
   type ValidationConstraint,
 } from "./typed.js";
 
+export {
+  // Encoding utilities
+  encodeText,
+  decodeText,
+  encodeJson,
+  decodeJson,
+} from "./encoding.js";
+
+export {
+  // Header utilities
+  findHeader,
+  findAllHeaders,
+  headersToMap,
+} from "./headers.js";
+
+export {
+  // HTTP status utilities
+  isSuccess,
+  isClientError,
+  isServerError,
+  isRedirect,
+} from "./http-status.js";
+
 import * as random from "./random.js";
 import * as time from "./time.js";
 import * as env from "./env.js";

@@ -1,5 +1,8 @@
 // Request parsing utilities
 
+import { decodeJson, decodeText } from "./encoding.js";
+import { findHeader, findAllHeaders } from "./headers.js";
+
 // ---- Types from mik:core/handler ----
 
 export type Method = "get" | "post" | "put" | "patch" | "delete" | "head" | "options";
@@ -15,11 +18,7 @@ export interface RequestData {
 
 export function parseJson<T>(body: Uint8Array | undefined): T | null {
   if (!body || body.length === 0) return null;
-  try {
-    return JSON.parse(new TextDecoder().decode(body)) as T;
-  } catch {
-    return null;
-  }
+  return decodeJson<T>(body);
 }
 
 export function getPath(req: RequestData): string {
@@ -33,23 +32,14 @@ export function getQuery(req: RequestData): URLSearchParams {
 }
 
 export function getHeader(req: RequestData, name: string): string | null {
-  const lower = name.toLowerCase();
-  for (const [key, value] of req.headers) {
-    if (key.toLowerCase() === lower) return value;
-  }
-  return null;
+  return findHeader(req.headers, name);
 }
 
 export function getHeaders(req: RequestData, name: string): string[] {
-  const lower = name.toLowerCase();
-  const values: string[] = [];
-  for (const [key, value] of req.headers) {
-    if (key.toLowerCase() === lower) values.push(value);
-  }
-  return values;
+  return findAllHeaders(req.headers, name);
 }
 
 export function getText(req: RequestData): string {
   if (!req.body || req.body.length === 0) return "";
-  return new TextDecoder().decode(req.body);
+  return decodeText(req.body);
 }

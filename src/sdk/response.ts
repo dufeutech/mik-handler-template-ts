@@ -1,6 +1,14 @@
 // Response helpers matching mik-sdk patterns
 // Uses simple mik:core response format
 
+import { encodeJson } from "./encoding.js";
+import {
+  MIME_JSON,
+  MIME_PROBLEM_JSON,
+  HEADER_CONTENT_TYPE,
+  statusTitle,
+} from "./constants.js";
+
 // ---- Types from mik:core/handler ----
 
 export interface Response {
@@ -24,8 +32,8 @@ export interface ProblemDetails {
 export function json<T>(status: number, body: T): Response {
   return {
     status,
-    headers: [["content-type", "application/json"]],
-    body: new TextEncoder().encode(JSON.stringify(body)),
+    headers: [[HEADER_CONTENT_TYPE, MIME_JSON]],
+    body: encodeJson(body),
   };
 }
 
@@ -34,14 +42,14 @@ export function ok<T>(body: T): Response {
 }
 
 export function created<T>(body: T, location?: string): Response {
-  const headers: [string, string][] = [["content-type", "application/json"]];
+  const headers: [string, string][] = [[HEADER_CONTENT_TYPE, MIME_JSON]];
   if (location) {
     headers.push(["location", location]);
   }
   return {
     status: 201,
     headers,
-    body: new TextEncoder().encode(JSON.stringify(body)),
+    body: encodeJson(body),
   };
 }
 
@@ -75,35 +83,40 @@ export function error(problem: ProblemDetails): Response {
   };
   return {
     status: problem.status,
-    headers: [["content-type", "application/problem+json"]],
-    body: new TextEncoder().encode(JSON.stringify(body)),
+    headers: [[HEADER_CONTENT_TYPE, MIME_PROBLEM_JSON]],
+    body: encodeJson(body),
   };
 }
 
+/** Create error response for a status code using statusTitle lookup. */
+function errorStatus(status: number, detail: string): Response {
+  return error({ title: statusTitle(status), status, detail });
+}
+
 export function badRequest(detail: string): Response {
-  return error({ title: "Bad Request", status: 400, detail });
+  return errorStatus(400, detail);
 }
 
 export function unauthorized(detail = "Authentication required"): Response {
-  return error({ title: "Unauthorized", status: 401, detail });
+  return errorStatus(401, detail);
 }
 
 export function forbidden(detail = "Access denied"): Response {
-  return error({ title: "Forbidden", status: 403, detail });
+  return errorStatus(403, detail);
 }
 
 export function notFound(detail = "Resource not found"): Response {
-  return error({ title: "Not Found", status: 404, detail });
+  return errorStatus(404, detail);
 }
 
 export function conflict(detail: string): Response {
-  return error({ title: "Conflict", status: 409, detail });
+  return errorStatus(409, detail);
 }
 
 export function unprocessableEntity(detail: string): Response {
-  return error({ title: "Unprocessable Entity", status: 422, detail });
+  return errorStatus(422, detail);
 }
 
 export function internalError(detail = "An unexpected error occurred"): Response {
-  return error({ title: "Internal Server Error", status: 500, detail });
+  return errorStatus(500, detail);
 }
