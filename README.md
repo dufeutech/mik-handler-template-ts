@@ -36,7 +36,9 @@ curl -X POST http://localhost:8080/users -d '{"name":"Alice","email":"alice@exam
 │       ├── env.ts      # Environment variables
 │       ├── request.ts  # Request parsing
 │       ├── response.ts # Response helpers
-│       └── router.ts   # Router
+│       ├── router.ts   # Router
+│       ├── constants.ts # MIME types, headers, limits
+│       └── typed.ts    # Id, ParseError, ValidationError
 ├── wit/handler.wit     # WIT world definition
 ├── tests/
 │   ├── api.test.mjs    # E2E tests
@@ -229,6 +231,69 @@ router.get("/users/{id}", (_req, params) => {
 
   return ok(result.value);
 });
+```
+
+### Constants
+
+```typescript
+import {
+  // MIME types
+  MIME_JSON,              // "application/json"
+  MIME_PROBLEM_JSON,      // "application/problem+json"
+  MIME_FORM_URLENCODED,   // "application/x-www-form-urlencoded"
+  MIME_HTML,              // "text/html"
+  MIME_TEXT,              // "text/plain"
+  // Headers
+  HEADER_CONTENT_TYPE,    // "content-type"
+  HEADER_AUTHORIZATION,   // "authorization"
+  HEADER_TRACE_ID,        // "x-trace-id"
+  // Size limits
+  MAX_JSON_SIZE,          // 1_000_000 (1MB)
+  MAX_JSON_DEPTH,         // 20
+  MAX_HEADER_VALUE_LEN,   // 8192 (8KB)
+  // Time
+  SECONDS_PER_DAY,        // 86400
+  SECONDS_PER_HOUR,       // 3600
+  // Helpers
+  statusTitle,            // statusTitle(404) → "Not Found"
+} from "./sdk/index.js";
+```
+
+### Typed Inputs
+
+```typescript
+import { Id, ParseError, ValidationError } from "./sdk/index.js";
+
+// Id is a string alias for path parameters
+const id: Id = params.id;  // "user_123"
+const num = parseInt(id, 10);  // Parse as number if needed
+
+// ParseError - for parsing failures
+const err1 = ParseError.missing("email");
+// → { field: "email", kind: "missing", message: "missing required field: email" }
+
+const err2 = ParseError.typeMismatch("age", "integer");
+// → { field: "age", kind: "type_mismatch", message: "age: expected integer" }
+
+const err3 = ParseError.invalidFormat("date", "2024-99-99");
+// → { field: "date", kind: "invalid_format", message: "date: invalid format '2024-99-99'" }
+
+// ValidationError - for constraint failures
+ValidationError.min("age", 0);           // "age: minimum value is 0"
+ValidationError.max("age", 150);         // "age: maximum value is 150"
+ValidationError.minLength("name", 1);    // "name: minimum length is 1"
+ValidationError.maxLength("name", 100);  // "name: maximum length is 100"
+ValidationError.pattern("phone", "^\\d{10}$");  // "phone: must match pattern..."
+ValidationError.email("email");          // "email: must be a valid email"
+ValidationError.url("website");          // "website: must be a valid URL"
+ValidationError.required("name");        // "name: is required"
+ValidationError.custom("password", "must contain a number");
+
+// Both have status and title properties
+err1.status;  // 400
+err1.title;   // "Bad Request"
+ValidationError.min("x", 0).status;  // 422
+ValidationError.min("x", 0).title;   // "Unprocessable Entity"
 ```
 
 ## Writing Handlers
