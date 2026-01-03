@@ -51,4 +51,5 @@ export {
 import * as random from "./random.js";
 import * as time from "./time.js";
 import * as env from "./env.js";
-export { random, time, env };
+import * as http from "./http.js";
+export { random, time, env, http };

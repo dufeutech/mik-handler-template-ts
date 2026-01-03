@@ -119,6 +119,51 @@ const timeout = env.int("TIMEOUT", 30);          // number
 const all = env.all();                           // Map<string, string>
 ```
 
+### HTTP Client
+
+```typescript
+import { http } from "./sdk/index.js";
+
+// Simple GET request
+const result = await http.get("https://api.example.com/users").send();
+if (result.ok) {
+  const data = result.response.json();
+  console.log(data);
+}
+
+// POST with JSON body
+const result = await http.post("https://api.example.com/users")
+  .json({ name: "Alice", email: "alice@example.com" })
+  .send();
+
+// With headers and timeout
+const result = await http.get("https://api.example.com/protected")
+  .header("Authorization", "Bearer token123")
+  .header("Accept", "application/json")
+  .timeout(5000)  // 5 seconds
+  .send();
+
+// Response helpers
+if (result.ok) {
+  const res = result.response;
+  res.status;              // 200
+  res.ok;                  // true
+  res.isSuccess();         // true (2xx)
+  res.isClientError();     // false (4xx)
+  res.isServerError();     // false (5xx)
+  res.text();              // body as string
+  res.json<User>();        // parsed JSON or null
+  res.header("content-type"); // "application/json"
+}
+
+// Error handling
+if (!result.ok) {
+  const err = result.error;
+  err.type;    // "network" | "timeout" | "invalid_url" | "unknown"
+  err.message; // Error description
+}
+```
+
 ### Response Helpers
 
 ```typescript
