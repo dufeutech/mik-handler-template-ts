@@ -2,20 +2,7 @@
 // Since TypeScript doesn't have macros, these return Response | null
 
 import { type Response, error } from "./response.js";
-
-const STATUS_TITLES: Record<number, string> = {
-  400: "Bad Request",
-  401: "Unauthorized",
-  403: "Forbidden",
-  404: "Not Found",
-  409: "Conflict",
-  422: "Unprocessable Entity",
-  500: "Internal Server Error",
-};
-
-function statusTitle(status: number): string {
-  return STATUS_TITLES[status] ?? "Error";
-}
+import { statusTitle } from "./constants.js";
 
 /**
  * Guard - returns error response if condition is false, null otherwise.
